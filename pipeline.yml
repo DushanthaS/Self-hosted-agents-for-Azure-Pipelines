@@ -80,6 +80,13 @@ stages:
           $version = $splitString[1]
           Write-Output "distro = `"$distro`""
           Write-Output "version = `"$version`""
+          # Install Azure PowerShell module if not already installed
+
+          if (-not (Get-Module -Name Az -ListAvailable)) {
+
+              Install-Module -Name Az -AllowClobber -Force -Scope CurrentUser
+
+          }
           Connect-AzAccount -Identity
           Set-AzContext -Subscription $(subscription)
           $imageVersion= Get-AzGalleryImageVersion -ResourceGroupName $(image_resource_group_name) -GalleryName $(gallery_name) -GalleryImageDefinitionName "ubuntu20_minimal" -GalleryImageVersionName "0.*" | Select-Object -ExpandProperty Name | Sort-Object -Descending | Select-Object -First 1
