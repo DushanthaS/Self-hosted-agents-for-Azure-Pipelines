@@ -1,0 +1,54 @@
+trigger:
+  branches:
+    include:
+      - development
+      - main
+
+pr:
+  branches:
+    include:
+      - "*"
+
+variables:
+  - name: BuildPlatform
+    value: "Any CPU"
+  - name: BuildConfiguration
+    value: "Release"
+  - group: 'Azure-pipeline-agents'
+  
+################################################################################################
+##    >>>>>>>>>>>>>>>>>>>     Getting the latest Versions   <<<<<<<<<<<<<<<<<<<               ##
+################################################################################################
+stages:
+- stage: Get_Latest_Versions
+  pool: "Azure Pipelines"
+  jobs:
+  - job: "Getting_the_versions" 
+    steps:
+    - task: PowerShell@2
+      inputs:
+        targetType: 'inline'
+        script: |
+          $releases = Invoke-RestMethod -Uri 'https://api.github.com/repos/actions/runner-images/releases'
+
+          $win22_latest = $releases | Where-Object { $_.tag_name -like 'win22/*' } | Sort-Object -Property published_at -Descending | Select-Object -First 1
+          Write-Host $win22_latest.tag_name
+          Write-Host "##vso[task.setvariable variable=win22;isOutput=true]$($win22_latest.tag_name)"
+          
+          
+          $win19_latest = $releases | Where-Object { $_.tag_name -like 'win19/*' } | Sort-Object -Property published_at -Descending | Select-Object -First 1
+          Write-Host $win19_latest.tag_name
+          Write-Host "##vso[task.setvariable variable=win19;isOutput=true]$($win19_latest.tag_name)"
+        
+          
+          $ubuntu20_latest = $releases | Where-Object { $_.tag_name -like 'ubuntu20/*' } | Sort-Object -Property published_at -Descending | Select-Object -First 1
+          Write-Host $ubuntu20_latest.tag_name
+          Write-Host "##vso[task.setvariable variable=ubuntu20;isOutput=true]$($ubuntu20_latest.tag_name)"
+
+
+          $ubuntu22_latest = $releases | Where-Object { $_.tag_name -like 'ubuntu22/*' } | Sort-Object -Property published_at -Descending | Select-Object -First 1
+          Write-Host $ubuntu22_latest.tag_name
+          Write-Host "##vso[task.setvariable variable=ubuntu22;isOutput=true]$($ubuntu22_latest.tag_name)"
+        workingDirectory: '$(System.ArtifactsDirectory)'
+      name: ImageVersions
+
