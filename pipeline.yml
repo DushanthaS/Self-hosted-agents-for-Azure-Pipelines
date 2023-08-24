@@ -52,3 +52,63 @@ stages:
         workingDirectory: '$(System.ArtifactsDirectory)'
       name: ImageVersions
 
+################################################################################################
+##    >>>>>>>>>>>>>>>>>>>       Building Minimal Images     <<<<<<<<<<<<<<<<<<<               ##
+################################################################################################
+
+
+############################################################
+##     *********  Ubuntu 20 min  **********               ##
+############################################################
+
+- stage: Run_ubuntu20_min_Image
+  dependsOn: Get_Latest_Versions
+  pool: "Azure Pipelines"
+  jobs:
+  - job: "Checking_the_Gallery_Latest_ubuntu20_min_Image_version" 
+    variables:
+      ubuntu20: $[stageDependencies.Get_Latest_Versions.Getting_the_versions.outputs['ImageVersions.ubuntu20']]
+    steps:
+
+    - task: PowerShell@2
+      inputs:
+        targetType: 'inline'
+        script: |
+          Write-Host $(ubuntu20)
+          $splitString = "$(ubuntu20)" -split "/"
+          $distro = $splitString[0]
+          $version = $splitString[1]
+          Write-Output "distro = `"$distro`""
+          Write-Output "version = `"$version`""
+          Connect-AzAccount -Identity
+          Set-AzContext -Subscription $(subscription)
+          $imageVersion= Get-AzGalleryImageVersion -ResourceGroupName $(image_resource_group_name) -GalleryName $(gallery_name) -GalleryImageDefinitionName "ubuntu20_minimal" -GalleryImageVersionName "0.*" | Select-Object -ExpandProperty Name | Sort-Object -Descending | Select-Object -First 1
+          if ($imageVersion -eq "0.$($version)") {
+              Write-Host "Image $imageVersion Already exists on the Gallery"
+               echo "##vso[task.complete result=Canceled;]DONE"         
+          } 
+          else {
+              echo "##vso[task.setvariable variable=u20_doRUN;isOutput=true]Yes" #set variable u20_doRUN to Yes
+          }
+      name: DetermineResult
+  - job: "Getting_the_Latest_ubuntu20_min_Image" 
+    dependsOn: "Checking_the_Gallery_Latest_ubuntu20_min_Image_version"
+    condition: or(eq(dependencies.Checking_the_Gallery_Latest_ubuntu20_min_Image_version.outputs['DetermineResult.u20_doRUN'], 'Yes'), eq(variables['u20_min_cus'], 'True'))
+    timeoutInMinutes: 720
+    variables:
+      ubuntu20: $[stageDependencies.Get_Latest_Versions.Getting_the_versions.outputs['ImageVersions.ubuntu20']]
+    steps:
+    - task: PowerShell@2
+      inputs:
+        filePath: '$(Build.SourcesDirectory)/psScripts/Getting_the_latest_u20_min_image.ps1'
+
+    - task: PackerBuild@1
+      inputs:
+        templateType: 'custom'
+        customTemplateLocation: '$(System.ArtifactsDirectory)/images/$(ubuntu20)/images/linux/ubuntu2004_min-ed.json'
+        customTemplateParameters: |
+          {
+            "ssh_password": "adsfdjkl", 
+            "install_password": "Max$3cr3t!"
+          }
+        packerVersion: '1.8.7'
